@@ -85,6 +85,7 @@ local function drawMainWindow()
     window:setY((getCore():getScreenHeight() * 0.5) - (window:getHeight() * 0.5) - 25)
 
     window:initialise()
+    window:setTitle("New Task Board")
     window:addToUIManager()
     window:setVisible(false)
 
@@ -136,9 +137,71 @@ local function drawAllSections(window)
     drawRightSection(window, middleSection)
 end
 
+local function showRenameDialog(window)
+    local function onRenameDialogResult(button, newTitle)
+        if button and button.internal == "OK" then
+            if newTitle and newTitle:match("%S") then
+                window:setTitle(newTitle)
+                window:bringToTop()      -- force redraw
+                window:dirtyUI()         -- mark as dirty for UI update
+                if TaskBoard_mainWindowFurniture then
+                    local modData = TaskBoard_Core.fetchModData(TaskBoard_mainWindowFurniture)
+                    modData.boardTitle = newTitle
+                    TaskBoard_mainWindowFurniture:transmitModData()
+                end
+            end
+        end
+    end
+
+    local textBox = ISTextBox:new(
+        getCore():getScreenWidth() / 2 - 150,
+        getCore():getScreenHeight() / 2 - 50,
+        300, 100,
+        "Rename Board",
+        window:getTitle(),
+        nil,
+        onRenameDialogResult,
+        nil
+    )
+    textBox:initialise()
+    textBox:addToUIManager()
+end
+
+-- Patch the window's mouse up handler to detect clicks on the title bar
+local old_onMouseUp = nil
+local dragStarted = false
+
+local function patchTitleBarClick(window)
+    old_onMouseUp = window.onMouseUp
+    window.onMouseDown = function(self, x, y)
+        dragStarted = false
+        if y < self:titleBarHeight() then
+            self._mouseDownOnTitle = true
+            self._mouseDownX = x
+            self._mouseDownY = y
+        end
+        ISCollapsableWindow.onMouseDown(self, x, y)
+    end
+    window.onMouseMove = function(self, dx, dy)
+        if self._mouseDownOnTitle and (math.abs(dx) > 2 or math.abs(dy) > 2) then
+            dragStarted = true
+        end
+        ISCollapsableWindow.onMouseMove(self, dx, dy)
+    end
+    window.onMouseUp = function(self, x, y)
+        if self._mouseDownOnTitle and not dragStarted and y < self:titleBarHeight() then
+            showRenameDialog(self)
+        end
+        self._mouseDownOnTitle = false
+        dragStarted = false
+        if old_onMouseUp then old_onMouseUp(self, x, y) end
+    end
+end
+
 local function drawKanbanBoard()
     TaskBoard_mainWindow = drawMainWindow()
     drawAllSections(TaskBoard_mainWindow)
+    patchTitleBarClick(TaskBoard_mainWindow)
 end
 
 local function main()

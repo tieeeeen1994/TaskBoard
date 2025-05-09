@@ -47,7 +47,11 @@ end
 local function reloadAllTablesInClient(furniture)
     if not furniture then return end
 
-    local tasks = TaskBoard_Core.fetchModData(furniture).tasks or {}
+    local modData = TaskBoard_Core.fetchModData(furniture)
+    local tasks = modData.tasks or {}
+    local title = modData.boardTitle or (TaskBoard_Utils.getFurnitureName(furniture) .. " Task Board")
+
+    TaskBoard_mainWindow:setTitle(title)
 
     local sectionMap = {
         [1] = {},
@@ -87,7 +91,7 @@ end
 function TaskBoard_Core.reloadAllTables(player, furniture)
     if not furniture then return end
 
-    TaskBoard_mainWindowFurniture = furniture
+    TaskBoard_Utils.setMainWindowFurniture(furniture)
     reloadAllTablesInClient(furniture)
 end
 
